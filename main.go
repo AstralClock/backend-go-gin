@@ -1,29 +1,46 @@
+// filepath: /C:/Users/Fauzy/Documents/Tugas/SEM 4/SI/Project/dashboard/backend-go-gin/main.go
 package main
 
 import (
-	"backend-go-gin/config"
-	"backend-go-gin/handlers"
-	"backend-go-gin/migrations"
-	"github.com/gin-gonic/gin"
+    "backend-go-gin/config"
+    "backend-go-gin/handlers"
+    "backend-go-gin/middleware"
+    "github.com/gin-gonic/gin"
+    "log"
+    "backend-go-gin/migrations"
 )
 
 func init() {
-	config.ConnectDB()
+    config.ConnectDB()
 }
 
 func main() {
-	migrations.Migrate()
+    // Connect to the database
+    migrations.Migrate()
 
-	router := gin.Default()
+    // Initialize Gin router
+    r := gin.Default()
 
-	// Route untuk testing
-	router.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{"message": "Hello, World!"})
-	})
+    // Use CORS middleware
+    r.Use(middleware.CORSMiddleware())
 
-	// Public routes
-	router.POST("/register", handlers.Register)
-	router.POST("/login", handlers.Login)
+    // Define routes
+    r.POST("/login", handlers.Login)
 
-	router.Run(":8000")
+    // Route untuk testing
+    r.GET("/ping", func(c *gin.Context) {
+        c.JSON(200, gin.H{"message": "Hello, World!"})
+    })
+
+    // Protected routes
+    protected := r.Group("/")
+    protected.Use(middleware.Auth())
+    {
+        // Add your protected routes here
+        // Example: protected.GET("/dashboard", handlers.Dashboard)
+    }
+
+    // Start the server
+    log.Println("Server started at :8000")
+    log.Fatal(r.Run(":8000"))
 }
