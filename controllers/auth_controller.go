@@ -10,8 +10,8 @@ var adminUser = struct {
     Username string
     Password string
 }{
-    Username: "admin123",
-    Password: "adminpassword",
+    Username: "fufufafa",
+    Password: "admin123",
 }
 
 // LoginUser authenticates the admin user and returns a JWT token

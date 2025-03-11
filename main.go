@@ -32,12 +32,16 @@ func main() {
         c.JSON(200, gin.H{"message": "Hello, World!"})
     })
 
+    r.POST("/addproducts", handlers.AddProductHandler)
+    r.DELETE("/delproducts/:id", handlers.DeleteProductHandler)
+    r.GET("/products", handlers.GetAllProductsHandler)
+
+    // Add your protected routes here
     // Protected routes
     protected := r.Group("/")
     protected.Use(middleware.Auth())
     {
-        // Add your protected routes here
-        // Example: protected.GET("/dashboard", handlers.Dashboard)
+        // protected.POST("/products", handlers.AddProductHandler)
     }
 
     // Start the server
