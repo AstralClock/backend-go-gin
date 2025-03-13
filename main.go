@@ -35,6 +35,7 @@ func main() {
     r.POST("/addproducts", handlers.AddProductHandler)
     r.DELETE("/delproducts/:id", handlers.DeleteProductHandler)
     r.GET("/products", handlers.GetAllProductsHandler)
+    r.PUT("/editproducts/:id", handlers.EditProductHandler)
 
     // Add your protected routes here
     // Protected routes

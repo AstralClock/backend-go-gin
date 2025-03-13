@@ -55,3 +55,29 @@ func GetAllProducts(c *gin.Context) {
 
     c.JSON(http.StatusOK, gin.H{"products": products})
 }
+
+// EditProduct updates a product by its ID
+func EditProduct(c *gin.Context) {
+    id := c.Param("id")
+    var product models.Produk
+
+    // Find the product by ID
+    if err := config.DB.First(&product, id).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+        return
+    }
+
+    // Bind JSON to product model
+    if err := c.ShouldBindJSON(&product); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+
+    // Save updated product to database
+    if err := config.DB.Save(&product).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{"message": "Product updated successfully", "product": product})
+}

@@ -19,3 +19,7 @@ func DeleteProductHandler(c *gin.Context) {
 func GetAllProductsHandler(c *gin.Context) {
     controllers.GetAllProducts(c)
 }
+
+func EditProductHandler(c *gin.Context) {
+    controllers.EditProduct(c)
+}
