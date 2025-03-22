@@ -3,8 +3,9 @@ package main
 import (
 	"backend-go-gin/config"
 	"backend-go-gin/handlers"
-	"backend-go-gin/migrations"
 	"backend-go-gin/middleware"
+	"backend-go-gin/migrations"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -22,7 +23,6 @@ func main() {
 	})
 
 	router.MaxMultipartMemory = 3 << 20 // 3MB
-
 	userDetailHandler := handlers.NewUserDetailHandler()
 
 	// Public routes
@@ -32,6 +32,7 @@ func main() {
 
 	// Private routes
 	router.POST("/user-detail", middleware.AuthMiddleware(), userDetailHandler.SaveUserDetail)
+	router.PUT("/user-detail", middleware.AuthMiddleware(), userDetailHandler.UpdateUserDetail)
 
 	router.Run(":8000")
 }
