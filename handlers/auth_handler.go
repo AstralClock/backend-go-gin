@@ -5,7 +5,6 @@ import (
 	"backend-go-gin/controllers"
 	"backend-go-gin/models"
 	"net/http"
-
 	"github.com/gin-gonic/gin"
 )
 
