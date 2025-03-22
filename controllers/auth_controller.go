@@ -10,32 +10,39 @@ import (
 )
 
 func RegisterUser(input models.User, confirmPassword string) (models.User, error) {
-    var existingUser models.User
-    if err := config.DB.Where("email = ?", input.Email).First(&existingUser).Error; err == nil {
-        return models.User{}, errors.New("email sudah terdaftar")
-    }
+	var existingUser models.User
+	if err := config.DB.Where("email = ?", input.Email).First(&existingUser).Error; err == nil {
+		return models.User{}, errors.New("email sudah terdaftar")
+	}
 
-    if input.Password != confirmPassword {
-        return models.User{}, errors.New("password dan konfirmasi password tidak cocok")
-    }
+	if input.Password != confirmPassword {
+		return models.User{}, errors.New("password dan konfirmasi password tidak cocok")
+	}
 
-    hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
-    if err != nil {
-        return models.User{}, errors.New("gagal mengenkripsi password")
-    }
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return models.User{}, errors.New("gagal mengenkripsi password")
+	}
 
-    // Buat user baru
-    user := models.User{
-        Email:    input.Email,
-        Password: string(hashedPassword),
-    }
+	verifyToken := utils.GenerateRandomToken() // Buat fungsi ini di package utils
 
-    // Simpan user ke database
-    if err := config.DB.Create(&user).Error; err != nil {
-        return models.User{}, errors.New("gagal menyimpan user")
-    }
+	// Buat user baru
+	user := models.User{
+		Email:       input.Email,
+		Password:    string(hashedPassword),
+		IsVerified:  false,
+		VerifyToken: verifyToken,
+	}
 
-    return user, nil
+	if err := config.DB.Create(&user).Error; err != nil {
+		return models.User{}, errors.New("gagal menyimpan user")
+	}
+
+	if err := utils.SendVerificationEmail(user.Email, verifyToken); err != nil {
+		return models.User{}, errors.New("gagal mengirim email verifikasi")
+	}
+
+	return user, nil
 }
 
 func LoginUser(email, password string) (string, error) {

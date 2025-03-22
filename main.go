@@ -24,6 +24,7 @@ func main() {
 	// Public routes
 	router.POST("/register", handlers.Register)
 	router.POST("/login", handlers.Login)
+	router.GET("/verify-email", handlers.VerifyEmail)
 
 	router.Run(":8000")
 }

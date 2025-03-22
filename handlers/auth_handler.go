@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"backend-go-gin/config"
 	"backend-go-gin/controllers"
 	"backend-go-gin/models"
 	"net/http"
@@ -43,14 +44,42 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	// Return success response
 	c.JSON(http.StatusCreated, gin.H{
 		"status":  true,
 		"message": "User registered successfully",
 		"data": gin.H{
 			"email": user.Email,
-			"id":    user.ID, // Assuming User model has an ID field
+			"id":    user.ID,
 		},
+	})
+}
+
+func VerifyEmail(c *gin.Context) {
+	token := c.Query("token")
+
+	var user models.User
+	if err := config.DB.Where("verify_token = ?", token).First(&user).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  false,
+			"message": "Token tidak valid",
+		})
+		return
+	}
+
+	// Update status verifikasi
+	user.IsVerified = true
+	user.VerifyToken = "" // Hapus token setelah verifikasi
+	if err := config.DB.Save(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  false,
+			"message": "Gagal memverifikasi email",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  true,
+		"message": "Email berhasil diverifikasi",
 	})
 }
 
