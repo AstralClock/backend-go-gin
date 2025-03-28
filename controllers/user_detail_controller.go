@@ -29,7 +29,6 @@ func (uc *UserDetailController) SaveUserDetail(userID uint, nama, telepon, alama
 }
 
 func (uc *UserDetailController) UpdateUserDetail(userID uint, nama, telepon, alamat, kodepos, provinsi *string, imgPath string) (*models.UserDetail, error) {
-    // Cari user detail berdasarkan userID
     var userDetail models.UserDetail
     if err := config.DB.Where("user_id = ?", userID).First(&userDetail).Error; err != nil {
         return nil, err
@@ -52,7 +51,6 @@ func (uc *UserDetailController) UpdateUserDetail(userID uint, nama, telepon, ala
         userDetail.Provinsi = *provinsi
     }
 
-    // Jika ada gambar baru, hapus gambar lama
     if imgPath != "" {
         if userDetail.Img != "" {
             if err := os.Remove(userDetail.Img); err != nil {
@@ -62,7 +60,6 @@ func (uc *UserDetailController) UpdateUserDetail(userID uint, nama, telepon, ala
         userDetail.Img = imgPath
     }
 
-    // Simpan perubahan ke database
     if err := config.DB.Save(&userDetail).Error; err != nil {
         return nil, err
     }

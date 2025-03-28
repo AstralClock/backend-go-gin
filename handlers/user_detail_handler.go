@@ -21,14 +21,12 @@ func NewUserDetailHandler() *UserDetailHandler {
 }
 
 func (uh *UserDetailHandler) SaveUserDetail(c *gin.Context) {
-	// Ambil user ID dari context (setelah autentikasi JWT)
 	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User tidak terautentikasi"})
 		return
 	}
 
-	// Bind form data
 	var request struct {
 		Nama     string `form:"nama" binding:"required"`
 		Telepon  string `form:"telepon" binding:"required"`
@@ -41,7 +39,6 @@ func (uh *UserDetailHandler) SaveUserDetail(c *gin.Context) {
 		return
 	}
 
-	// Handle file upload
 	file, err := c.FormFile("img")
 	if err != nil && err != http.ErrMissingFile {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Gagal mengunggah gambar"})
@@ -56,12 +53,10 @@ func (uh *UserDetailHandler) SaveUserDetail(c *gin.Context) {
 			return
 		}
 
-		// Generate nama file random
 		randomName := utils.RandomString(10) // 10 karakter random
 		ext := filepath.Ext(file.Filename)   // Ambil ekstensi file asli
 		filename := filepath.Join("uploads", "avatar", randomName+ext)
 
-		// Simpan file
 		if err := c.SaveUploadedFile(file, filename); err != nil {
 			log.Printf("Gagal menyimpan gambar: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan gambar"})
@@ -70,9 +65,8 @@ func (uh *UserDetailHandler) SaveUserDetail(c *gin.Context) {
 		imgPath = filename
 	}
 
-	// Panggil controller untuk menyimpan data
 	userDetail, err := uh.userDetailController.SaveUserDetail(
-		userID.(uint), // Konversi userID ke uint
+		userID.(uint), 
 		request.Nama,
 		request.Telepon,
 		request.Alamat,
@@ -111,7 +105,6 @@ func (uh *UserDetailHandler) UpdateUserDetail(c *gin.Context) {
         return
     }
 
-    // Handle file upload (jika ada gambar baru)
     file, err := c.FormFile("img")
     if err != nil && err != http.ErrMissingFile {
         c.JSON(http.StatusBadRequest, gin.H{"error": "Gagal mengunggah gambar"})
@@ -120,18 +113,15 @@ func (uh *UserDetailHandler) UpdateUserDetail(c *gin.Context) {
 
     var imgPath string
     if file != nil {
-        // Batasi ukuran file maksimal 3MB
         if file.Size > 3<<20 { // 3MB
             c.JSON(http.StatusBadRequest, gin.H{"error": "Ukuran file terlalu besar (maksimal 3MB)"})
             return
         }
 
-        // Generate nama file random
         randomName := utils.RandomString(10) 
         ext := filepath.Ext(file.Filename)   
         filename := filepath.Join("uploads", "avatar", randomName+ext)
 
-        // Simpan file baru
         if err := c.SaveUploadedFile(file, filename); err != nil {
             log.Printf("Gagal menyimpan gambar: %v", err)
             c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan gambar"})
@@ -140,9 +130,8 @@ func (uh *UserDetailHandler) UpdateUserDetail(c *gin.Context) {
         imgPath = filename
     }
 
-    // Panggil controller untuk update data
     userDetail, err := uh.userDetailController.UpdateUserDetail(
-        userID.(uint), // Konversi userID ke uint
+        userID.(uint), 
         request.Nama,
         request.Telepon,
         request.Alamat,

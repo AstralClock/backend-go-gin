@@ -2,7 +2,6 @@ package utils
 
 import (
 	"log"
-
 	"gopkg.in/gomail.v2"
 )
 
