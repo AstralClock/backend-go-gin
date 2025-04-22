@@ -10,6 +10,10 @@ import (
 	"strconv"
 )
 
+type UpdateCartItemRequest struct {
+	Quantity int `json:"quantity" binding:"required,min=1"`
+}
+
 type AddToCartRequest struct {
 	ProdukID uint `json:"produk_id" binding:"required"`
 	Quantity int  `json:"quantity" binding:"required,min=1"`
@@ -63,9 +67,6 @@ func AddToCart(c *gin.Context) {
 	})
 }
 
-type UpdateCartItemRequest struct {
-	Quantity int `json:"quantity" binding:"required,min=1"`
-}
 
 func UpdateCartItem(c *gin.Context) {
 	userID := c.MustGet("userID").(uint)
