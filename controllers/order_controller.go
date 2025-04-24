@@ -82,7 +82,7 @@ func (oc *OrderController) CheckoutSelectedItems(c *gin.Context) {
 			HargaTotal:  cartDetail.Subtotal,
 		}
 		orderDetails = append(orderDetails, orderDetail)
-		
+
 		totalBarang += cartDetail.Quantity
 		totalHarga += cartDetail.Subtotal
 	}
@@ -144,19 +144,13 @@ func (oc *OrderController) CheckoutSelectedItems(c *gin.Context) {
 		Amount:             order.TotalHarga,
 		MidtransOrderID:    order.Invoice,
 	}
-	
+
 	if err := config.DB.Create(&payment).Error; err != nil {
 		config.DB.Delete(&order)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save payment data"})
 		return
 	}
-	
-	// Hapus cart details yang sudah di-checkout
-	if err := config.DB.Where("id IN ?", request.CartDetailIDs).Delete(&models.CartDetail{}).Error; err != nil {
-		fmt.Println("Failed to delete checked out cart items:", err)
-		// Lanjutkan karena order sudah berhasil dibuat
-	}
-	
+
 	// Periksa dan hapus cart jika kosong
 	if len(cartDetails) > 0 {
 		var remainingItems int64
@@ -165,84 +159,127 @@ func (oc *OrderController) CheckoutSelectedItems(c *gin.Context) {
 			config.DB.Delete(&models.Cart{}, cartDetails[0].CartID)
 		}
 	}
+
+	var orderWithDetails models.Order
+	if err := config.DB.Preload("User.UserDetail").First(&orderWithDetails, order.ID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get order details"})
+		return
+	}
 	
+	// Ganti response order dengan orderWithDetails yang sudah termasuk User dan UserDetail
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Order created and cart items removed",
-		"order":   order,
+		"order":   orderWithDetails,
 		"payment": gin.H{
 			"token":        payment.PaymentToken,
 			"redirect_url": payment.PaymentRedirectURL,
 		},
-		})
-	
-	}
+	})
 
+}
 
 func (oc *OrderController) HandlePaymentNotification(c *gin.Context) {
-	var notificationPayload map[string]interface{}
+    var notificationPayload map[string]interface{}
 
-	if err := c.ShouldBindJSON(&notificationPayload); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+    if err := c.ShouldBindJSON(&notificationPayload); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
 
-	// Get order ID from notification
-	orderID, exists := notificationPayload["order_id"].(string)
-	if !exists {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid notification payload"})
-		return
-	}
+    // Get order ID from notification
+    orderID, exists := notificationPayload["order_id"].(string)
+    if !exists {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid notification payload"})
+        return
+    }
 
-	// Verify payment with Midtrans
-	transactionStatus, err := oc.paymentService.VerifyPayment(orderID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
+    // Verify payment with Midtrans
+    transactionStatus, err := oc.paymentService.VerifyPayment(orderID)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
 
-	// Find the related payment
-	var payment models.Payment
-	if err := config.DB.Where("midtrans_order_id = ?", orderID).First(&payment).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Payment record not found"})
-		return
-	}
+    // Find the related payment
+    var payment models.Payment
+    if err := config.DB.Where("midtrans_order_id = ?", orderID).First(&payment).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Payment record not found"})
+        return
+    }
 
-	// Update payment status based on Midtrans response
-	switch transactionStatus.TransactionStatus {
-	case "capture", "settlement":
-		payment.Status = "success"
-		payment.PaymentMethod = transactionStatus.PaymentType
-	case "pending":
-		payment.Status = "pending"
-	case "deny", "expire", "cancel":
-		payment.Status = "failed"
-	default:
-		payment.Status = "failed"
-	}
+    // Update payment status based on Midtrans response
+    switch transactionStatus.TransactionStatus {
+    case "capture", "settlement":
+        payment.Status = "success"
+        payment.PaymentMethod = transactionStatus.PaymentType
+        
+        // Jika pembayaran berhasil, kurangi stok produk
+        if err := oc.updateProductStock(payment.OrderID); err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update product stock"})
+            return
+        }
+    case "pending":
+        payment.Status = "pending"
+    case "deny", "expire", "cancel":
+        payment.Status = "failed"
+    default:
+        payment.Status = "failed"
+    }
 
-	// Save payment updates
-	if err := config.DB.Save(&payment).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update payment status"})
-		return
-	}
+    // Save payment updates
+    if err := config.DB.Save(&payment).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update payment status"})
+        return
+    }
 
-	// Optionally update order status
-	var order models.Order
-	if err := config.DB.First(&order, payment.OrderID).Error; err == nil {
-		order.Status = payment.Status
-		order.MetodePembayaran = payment.PaymentMethod
-		config.DB.Save(&order)
-	}
+    // Update order status
+    var order models.Order
+    if err := config.DB.First(&order, payment.OrderID).Error; err == nil {
+        order.Status = payment.Status
+        order.MetodePembayaran = payment.PaymentMethod
+        config.DB.Save(&order)
+    }
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Payment notification handled successfully",
-		"payment": gin.H{
-			"status":            payment.Status,
-			"payment_method":    payment.PaymentMethod,
-			"midtrans_order_id": payment.MidtransOrderID,
-		},
-	})
+    c.JSON(http.StatusOK, gin.H{
+        "message": "Payment notification handled successfully",
+        "payment": gin.H{
+            "status":            payment.Status,
+            "payment_method":    payment.PaymentMethod,
+            "midtrans_order_id": payment.MidtransOrderID,
+        },
+    })
 }
+
+// Fungsi baru untuk mengurangi stok produk
+func (oc *OrderController) updateProductStock(orderID uint) error {
+    // Ambil semua order detail untuk order ini
+    var orderDetails []models.OrderDetail
+    if err := config.DB.Where("order_id = ?", orderID).Find(&orderDetails).Error; err != nil {
+        return err
+    }
+
+    // Kurangi stok untuk setiap produk
+    for _, detail := range orderDetails {
+        var product models.Produk
+        if err := config.DB.First(&product, detail.ProdukID).Error; err != nil {
+            return err
+        }
+
+        // Pastikan stok cukup sebelum dikurangi
+        if product.Jumlah < detail.TotalProduk {
+            return fmt.Errorf("not enough stock for product %d", product.ID)
+        }
+
+        product.Jumlah -= detail.TotalProduk
+        if err := config.DB.Save(&product).Error; err != nil {
+            return err
+        }
+    }
+
+    return nil
+}
+
+
 
 func calculateTotals(details []models.OrderDetail) (int, float64) {
 	totalBarang := 0
