@@ -8,60 +8,44 @@ import (
 	"backend-go-gin/middleware"
 	"backend-go-gin/migrations"
 
-	"backend-go-gin/config"
-	"backend-go-gin/handlers"
-	"backend-go-gin/middleware"
-	"backend-go-gin/migrations"
-	"log"
-
 	"github.com/gin-gonic/gin"
 )
 
 func init() {
-	config.ConnectDB()
+    config.ConnectDB()
 }
 
 func main() {
-	// Connect to the database
-	migrations.Migrate()
+    // Connect to the database
+    migrations.Migrate()
 
-	r := gin.Default()
-	// Initialize Gin router
-	r := gin.Default()
+    // Initialize Gin router
+    r := gin.Default()
 
-	// Use CORS middleware
-	r.Use(middleware.CORSMiddleware())
-
-	// Define routes
-	r.POST("/login", handlers.Login)
-
-	r.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{"message": "Hello, World!"})
-	})
+    // Use CORS middleware
+    r.Use(middleware.CORSMiddleware())
 
 	r.MaxMultipartMemory = 3 << 20 // 3MB
 	r.Use(middleware.CORSMiddleware())
-	userDetailHandler := handlers.NewUserDetailHandler()
 	orderController := controllers.NewOrderController()
-	// Route untuk testing
-	r.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{"message": "Hello, World!"})
-	})
+    // Route untuk testing
+    r.GET("/ping", func(c *gin.Context) {
+        c.JSON(200, gin.H{"message": "Hello, World!"})
+    })
 
+	// Public routes
+	r.POST("/login", handlers.Login)
+	r.POST("/payment/notification", orderController.HandlePaymentNotification)
+
+	//admin routes
 	r.POST("/addproducts", handlers.AddProductHandler)
 	r.DELETE("/delproducts/:id", handlers.DeleteProductHandler)
 	r.GET("/products", handlers.GetAllProductsHandler)
 	r.PUT("/editproducts/:id", handlers.EditProductHandler)
 
-	// Add your protected routes here
-	// Protected routes
-	protected := r.Group("/")
-	protected.Use(middleware.Auth())
-	{
-		// protected.POST("/products", handlers.AddProductHandler)
-	}
+	// Private routes
+	r.POST("/addcart", middleware.AuthMiddleware(), handlers.AddToCart)
+	r.POST("/orders", middleware.AuthMiddleware(), orderController.CheckoutSelectedItems)
 
-	// Start the server
-	log.Println("Server started at :8000")
-	log.Fatal(r.Run(":8000"))
+	r.Run(":8000")
 }
