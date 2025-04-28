@@ -17,6 +17,7 @@ func Migrate() {
         &models.Cart{},
         &models.CartDetail{},
         &models.Ulasan{},
+		&models.Payment{},
 		// Tambahkan model lain di sini
 	); err != nil {
 		panic("Gagal melakukan migrasi database")

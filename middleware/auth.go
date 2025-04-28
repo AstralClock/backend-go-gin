@@ -6,11 +6,18 @@ import (
     "github.com/golang-jwt/jwt/v5"
 )
 
-func Auth() gin.HandlerFunc {
+func AuthMiddleware() gin.HandlerFunc {
     return func(c *gin.Context) {
-        tokenString := c.GetHeader("Authorization")
+        authHeader := c.GetHeader("Authorization")
+        if authHeader == "" {
+            c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header diperlukan"})
+            c.Abort()
+            return
+        }
+
+        tokenString := strings.Split(authHeader, " ")[1]
         if tokenString == "" {
-            c.JSON(401, gin.H{"error": "Token tidak ditemukan"})
+            c.JSON(http.StatusUnauthorized, gin.H{"error": "Token tidak valid"})
             c.Abort()
             return
         }
