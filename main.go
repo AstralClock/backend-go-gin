@@ -42,10 +42,12 @@ func main() {
 	r.DELETE("/delproducts/:id", handlers.DeleteProductHandler)
 	r.GET("/products", handlers.GetAllProductsHandler)
 	r.PUT("/editproducts/:id", handlers.EditProductHandler)
+	r.POST("/upload/products/:id", handlers.UploadProductImages)
 
 	// Private routes
 	r.POST("/addcart", middleware.AuthMiddleware(), handlers.AddToCart)
 	r.POST("/orders", middleware.AuthMiddleware(), orderController.CheckoutSelectedItems)
 
+	r.Static("/uploads", "./uploads")
 	r.Run(":8000")
 }
