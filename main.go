@@ -23,6 +23,7 @@ func main() {
 	r.Use(middleware.CORSMiddleware())
 	userDetailHandler := handlers.NewUserDetailHandler()
 	orderController := controllers.NewOrderController()
+	userDetail := controllers.NewUserController()
 
 	// Public routes
 	r.POST("/register", handlers.Register)
@@ -31,6 +32,8 @@ func main() {
 	r.POST("/payment/notification/:id", orderController.HandlePaymentNotification)
 	r.GET("getorders", orderController.GetAllOrders)
 	r.GET("gerorder/:id", orderController.GetOrderByID)
+	r.GET("/users", userDetail.GetAllUserDetails)
+	r.GET("/user/:id", userDetail.GetUserDetailByID)
 
 	//admin routes
 	r.POST("/addproducts", handlers.AddProductHandler)
