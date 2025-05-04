@@ -24,6 +24,7 @@ func main() {
 	userDetailHandler := handlers.NewUserDetailHandler()
 	orderController := controllers.NewOrderController()
 	userDetail := controllers.NewUserController()
+	cartsController := controllers.NewCartsController()
 
 	// Public routes
 	r.POST("/register", handlers.Register)
@@ -43,10 +44,17 @@ func main() {
 	r.POST("/upload/products/:id", handlers.UploadProductImages)
 
 	// Private routes
-	r.POST("/user-detail", middleware.AuthMiddleware(), userDetailHandler.SaveUserDetail)
-	r.PUT("/user-detail", middleware.AuthMiddleware(), userDetailHandler.UpdateUserDetail)
+	r.POST("/postuser", middleware.AuthMiddleware(), userDetailHandler.SaveUserDetail)
+	r.PUT("/edituser", middleware.AuthMiddleware(), userDetailHandler.UpdateUserDetail)
 	r.POST("/addcart", middleware.AuthMiddleware(), handlers.AddToCart)
+	r.PUT("/updatecartdetail/:id", middleware.AuthMiddleware(), handlers.UpdateCartItem)
+	r.DELETE("/deletecart/:id", middleware.AuthMiddleware(), handlers.DeleteCartItem)
 	r.POST("/orders", middleware.AuthMiddleware(), orderController.CheckoutSelectedItems)
+	r.GET("/carts", middleware.AuthMiddleware(), cartsController.GetUserCart)
+	r.GET("/cartdetail", middleware.AuthMiddleware(), cartsController.GetUserCartDetails)
+	r.GET("/getuserlogin", middleware.AuthMiddleware(), userDetail.GetCurrentUserDetail)
+	r.GET("/user/orders", middleware.AuthMiddleware(), orderController.GetUserOrderDetails)
+	r.GET("/user/orders/:id", middleware.AuthMiddleware(), orderController.GetUserOrderByID)
 
 	r.Run(":8000")
 }

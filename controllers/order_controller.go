@@ -383,3 +383,77 @@ func (oc *OrderController) GetAllOrders(c *gin.Context) {
 		"orders":  ordersResponse,
 	})
 }
+
+func (oc *OrderController) GetUserOrderByID(c *gin.Context) {
+    orderID := c.Param("id")
+    userID, _ := c.Get("userID")
+
+    var order models.Order
+    if err := config.DB.
+        Preload("OrderDetails.Produk").
+        Where("id = ? AND user_id = ?", orderID, userID).
+        First(&order).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+        return
+    }
+
+    // Format response sesuai kebutuhan
+    c.JSON(http.StatusOK, gin.H{
+        "data":    order,
+    })
+}
+
+func (oc *OrderController) GetUserOrderDetails(c *gin.Context) {
+	// Ambil userID dari JWT
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	var orders []models.Order
+	if err := config.DB.
+		Preload("User.UserDetail").
+		Preload("OrderDetails.Produk").
+		Where("user_id = ?", userID).
+		Find(&orders).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch orders"})
+		return
+	}
+
+	// Format response
+	var response []gin.H
+	for _, order := range orders {
+		orderDetails := make([]gin.H, 0)
+		for _, detail := range order.OrderDetails {
+			orderDetails = append(orderDetails, gin.H{
+				"produk": gin.H{
+					"id":    detail.Produk.ID,
+					"name":  detail.Produk.NamaProduk,
+					"price": detail.Produk.Harga,
+				},
+				"quantity":   detail.TotalProduk,
+				"subtotal":   detail.HargaTotal,
+				"created_at": detail.CreatedAt,
+			})
+		}
+
+		response = append(response, gin.H{
+			"order_id":     order.ID,
+			"invoice":      order.Invoice,
+			"total_amount": order.TotalHarga,
+			"created_at":   order.CreatedAt,
+			"order_items":  orderDetails,
+			"user": gin.H{
+				"name":    order.User.UserDetail.Nama,
+				"email":   order.User.Email,
+				"phone":   order.User.UserDetail.Telepon,
+				"address": order.User.UserDetail.Alamat,
+			},
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data":    response,
+	})
+}

@@ -122,3 +122,34 @@ func (uc *UserController) GetUserDetailByID(c *gin.Context) {
 		"data":    result,
 	})
 }
+
+// controllers/user_controller.go
+func (uc *UserController) GetCurrentUserDetail(c *gin.Context) {
+    // Ambil userID dari JWT
+    userID, exists := c.Get("userID")
+    if !exists {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+        return
+    }
+
+    var result struct {
+        models.UserDetail
+        Email string `json:"email"`
+    }
+
+    // Query dengan join
+    if err := config.DB.
+        Table("user_details").
+        Select("user_details.*, users.email").
+        Joins("LEFT JOIN users ON users.id = user_details.user_id").
+        Where("user_details.user_id = ?", userID).
+        First(&result).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "User detail not found"})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "message": "User detail retrieved successfully",
+        "data":    result,
+    })
+}
