@@ -3,12 +3,12 @@ package controllers
 import (
 	"backend-go-gin/config"
 	"backend-go-gin/models"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
-// AddProduct adds a new product to the database
 func AddProduct(c *gin.Context) {
     var product models.Produk
 
@@ -24,7 +24,14 @@ func AddProduct(c *gin.Context) {
         return
     }
 
-    c.JSON(http.StatusOK, gin.H{"message": "Product added successfully", "product": product})
+    // Update the image field with the product ID
+    product.Image = fmt.Sprintf("%d", product.ID)
+    config.DB.Save(&product)
+
+    c.JSON(http.StatusOK, gin.H{
+        "message": "Product added successfully",
+        "product": product,
+    })
 }
 
 // DeleteProduct deletes a product by its ID
