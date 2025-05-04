@@ -311,7 +311,6 @@ func calculateTotals(details []models.OrderDetail) (int, float64) {
 	return totalBarang, totalHarga
 }
 
-// GetOrderByID - Dengan alamat dan telepon
 func (oc *OrderController) GetOrderByID(c *gin.Context) {
 	orderID := c.Param("id")
 
@@ -363,16 +362,19 @@ func (oc *OrderController) GetAllOrders(c *gin.Context) {
 	var ordersResponse []gin.H
 	for _, order := range orders {
 		ordersResponse = append(ordersResponse, gin.H{
-			"id":      order.ID,
-			"invoice": order.Invoice,
-			"status":  order.Status,
+			"id":           order.ID,
+			"invoice":      order.Invoice,
+			"status":       order.Status,
+			"total_barang": order.TotalBarang,
+			"total_harga":  order.TotalHarga,
 			"user": gin.H{
 				"id":      order.User.ID,
 				"name":    order.User.UserDetail.Nama,
 				"phone":   order.User.UserDetail.Telepon,
 				"address": order.User.UserDetail.Alamat,
 			},
-			"created_at": order.CreatedAt,
+			"created_at":    order.CreatedAt,
+			"order_details": order.OrderDetails,
 		})
 	}
 
