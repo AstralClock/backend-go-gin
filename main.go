@@ -43,9 +43,12 @@ func main() {
 	r.GET("/products", handlers.GetAllProductsHandler)
 	r.PUT("/editproducts/:id", handlers.EditProductHandler)
 	r.POST("/upload/products/:id", handlers.UploadProductImages)
+	r.POST("/upload/products/:id", handlers.UploadProductImages)
 
 	// Private routes
 	r.POST("/addcart", middleware.AuthMiddleware(), handlers.AddToCart)
+	r.PUT("/updatecartdetail/:id", middleware.AuthMiddleware(), handlers.UpdateCartItem)
+	r.DELETE("/deletecart/:id", middleware.AuthMiddleware(), handlers.DeleteCartItem)
 	r.POST("/orders", middleware.AuthMiddleware(), orderController.CheckoutSelectedItems)
 
 	r.GET("/orders", orderController.GetAllOrderDetails)       // Get all orders

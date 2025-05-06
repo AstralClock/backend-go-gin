@@ -257,7 +257,18 @@ func (oc *OrderController) updateProductStock(orderID uint) error {
 	if err := config.DB.Where("order_id = ?", orderID).Find(&orderDetails).Error; err != nil {
 		return err
 	}
+	// Ambil semua order detail untuk order ini
+	var orderDetails []models.OrderDetail
+	if err := config.DB.Where("order_id = ?", orderID).Find(&orderDetails).Error; err != nil {
+		return err
+	}
 
+	// Kurangi stok untuk setiap produk
+	for _, detail := range orderDetails {
+		var product models.Produk
+		if err := config.DB.First(&product, detail.ProdukID).Error; err != nil {
+			return err
+		}
 	// Kurangi stok untuk setiap produk
 	for _, detail := range orderDetails {
 		var product models.Produk
@@ -269,13 +280,23 @@ func (oc *OrderController) updateProductStock(orderID uint) error {
 		if product.Jumlah < detail.TotalProduk {
 			return fmt.Errorf("not enough stock for product %d", product.ID)
 		}
+		// Pastikan stok cukup sebelum dikurangi
+		if product.Jumlah < detail.TotalProduk {
+			return fmt.Errorf("not enough stock for product %d", product.ID)
+		}
 
 		product.Jumlah -= detail.TotalProduk
 		if err := config.DB.Save(&product).Error; err != nil {
 			return err
 		}
 	}
+		product.Jumlah -= detail.TotalProduk
+		if err := config.DB.Save(&product).Error; err != nil {
+			return err
+		}
+	}
 
+	return nil
 	return nil
 }
 

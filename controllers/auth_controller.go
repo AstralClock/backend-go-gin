@@ -27,4 +27,5 @@ func LoginAdmin(Username, password string) (string, error) {
     }
 
     return token, nil
+    return token, nil
 }
