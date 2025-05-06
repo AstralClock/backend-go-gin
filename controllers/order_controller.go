@@ -8,6 +8,8 @@ import (
 	"backend-go-gin/models"
 	"backend-go-gin/services"
 	"backend-go-gin/utils"
+	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -179,74 +181,90 @@ func (oc *OrderController) CheckoutSelectedItems(c *gin.Context) {
 }
 
 func (oc *OrderController) HandlePaymentNotification(c *gin.Context) {
-	var notificationPayload map[string]interface{}
-
-	if err := c.ShouldBindJSON(&notificationPayload); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	// Get order ID from URL parameter
+	orderIDStr := c.Param("id")
+	orderID, err := strconv.ParseUint(orderIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid order ID format"})
 		return
 	}
 
-	// Get order ID from notification
-	orderID, exists := notificationPayload["order_id"].(string)
-	if !exists {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid notification payload"})
+	// Find the order to get invoice number
+	var order models.Order
+	if err := config.DB.First(&order, uint(orderID)).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
 		return
 	}
 
-	// Verify payment with Midtrans
-	transactionStatus, err := oc.paymentService.VerifyPayment(orderID)
+	// Check the order's age
+	now := time.Now()
+	orderAge := now.Sub(order.CreatedAt)
+
+	if orderAge.Hours() > 24 && order.Status == "pending" {
+		// If the order is older than 24 hours and still pending, set it to failed
+		order.Status = "failed"
+		if err := config.DB.Save(&order).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update order status to failed"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"message":  "Order status updated to failed due to timeout",
+			"order_id": order.ID,
+			"status":   order.Status,
+		})
+		return
+	}
+
+	// Verify payment with Midtrans using invoice number
+	transactionStatus, err := oc.paymentService.VerifyPayment(order.Invoice)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Find the related payment
+	// Find related payment record
 	var payment models.Payment
-	if err := config.DB.Where("midtrans_order_id = ?", orderID).First(&payment).Error; err != nil {
+	if err := config.DB.Where("order_id = ?", order.ID).First(&payment).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Payment record not found"})
 		return
 	}
 
-	// Update payment status based on Midtrans response
+	// Update status based on Midtrans response
 	switch transactionStatus.TransactionStatus {
 	case "capture", "settlement":
 		payment.Status = "success"
-		payment.PaymentMethod = transactionStatus.PaymentType
-
-		// Jika pembayaran berhasil, kurangi stok produk
-		if err := oc.updateProductStock(payment.OrderID); err != nil {
+		// Reduce product stock if payment is successful
+		if err := oc.updateProductStock(order.ID); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update product stock"})
 			return
 		}
 	case "pending":
-		payment.Status = "pending"
-	case "deny", "expire", "cancel":
-		payment.Status = "failed"
-	default:
+		if orderAge.Hours() <= 24 {
+			payment.Status = "pending"
+		} else {
+			payment.Status = "failed"
+		}
+	default: // deny, expire, cancel, etc.
 		payment.Status = "failed"
 	}
 
-	// Save payment updates
+	// Save payment and order status
 	if err := config.DB.Save(&payment).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update payment status"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update payment"})
 		return
 	}
 
-	// Update order status
-	var order models.Order
-	if err := config.DB.First(&order, payment.OrderID).Error; err == nil {
-		order.Status = payment.Status
-		order.MetodePembayaran = payment.PaymentMethod
-		config.DB.Save(&order)
+	order.Status = payment.Status
+	if err := config.DB.Save(&order).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update order"})
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Payment notification handled successfully",
-		"payment": gin.H{
-			"status":            payment.Status,
-			"payment_method":    payment.PaymentMethod,
-			"midtrans_order_id": payment.MidtransOrderID,
-		},
+		"message":  "Payment status updated",
+		"order_id": order.ID,
+		"status":   payment.Status,
+		"invoice":  order.Invoice,
 	})
 }
 
@@ -257,18 +275,7 @@ func (oc *OrderController) updateProductStock(orderID uint) error {
 	if err := config.DB.Where("order_id = ?", orderID).Find(&orderDetails).Error; err != nil {
 		return err
 	}
-	// Ambil semua order detail untuk order ini
-	var orderDetails []models.OrderDetail
-	if err := config.DB.Where("order_id = ?", orderID).Find(&orderDetails).Error; err != nil {
-		return err
-	}
 
-	// Kurangi stok untuk setiap produk
-	for _, detail := range orderDetails {
-		var product models.Produk
-		if err := config.DB.First(&product, detail.ProdukID).Error; err != nil {
-			return err
-		}
 	// Kurangi stok untuk setiap produk
 	for _, detail := range orderDetails {
 		var product models.Produk
@@ -280,23 +287,12 @@ func (oc *OrderController) updateProductStock(orderID uint) error {
 		if product.Jumlah < detail.TotalProduk {
 			return fmt.Errorf("not enough stock for product %d", product.ID)
 		}
-		// Pastikan stok cukup sebelum dikurangi
-		if product.Jumlah < detail.TotalProduk {
-			return fmt.Errorf("not enough stock for product %d", product.ID)
-		}
 
 		product.Jumlah -= detail.TotalProduk
 		if err := config.DB.Save(&product).Error; err != nil {
 			return err
 		}
 	}
-		product.Jumlah -= detail.TotalProduk
-		if err := config.DB.Save(&product).Error; err != nil {
-			return err
-		}
-	}
-
-	return nil
 	return nil
 }
 
@@ -354,21 +350,21 @@ func (oc *OrderController) UpdateOrder(c *gin.Context) {
 }
 
 func (oc *OrderController) GetAllOrderDetails(c *gin.Context) {
-    var orderDetails []models.OrderDetail
-    err := config.DB.
-        Preload("Order.User.UserDetail"). // Preload nested User and UserDetail
-        Preload("Produk").                // Preload Produk
-        Find(&orderDetails).Error
-    if err != nil {
-        fmt.Println("Error fetching order details:", err) // Debugging log
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve order details"})
-        return
-    }
+	var orderDetails []models.OrderDetail
+	err := config.DB.
+		Preload("Order.User.UserDetail"). // Preload nested User and UserDetail
+		Preload("Produk").                // Preload Produk
+		Find(&orderDetails).Error
+	if err != nil {
+		fmt.Println("Error fetching order details:", err) // Debugging log
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve order details"})
+		return
+	}
 
-    c.JSON(http.StatusOK, gin.H{
-        "message":       "Order details retrieved successfully",
-        "order_details": orderDetails,
-    })
+	c.JSON(http.StatusOK, gin.H{
+		"message":       "Order details retrieved successfully",
+		"order_details": orderDetails,
+	})
 }
 
 func calculateTotals(details []models.OrderDetail) (int, float64) {

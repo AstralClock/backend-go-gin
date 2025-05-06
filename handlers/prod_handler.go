@@ -20,6 +20,10 @@ func DeleteProductHandler(c *gin.Context) {
     controllers.DeleteProduct(c)
 }
 
+func GetProductByIDHandler(c *gin.Context) {
+    controllers.GetProductByID(c)
+}
+
 // GetAllProductsHandler handles the request to get all products
 func GetAllProductsHandler(c *gin.Context) {
     controllers.GetAllProducts(c)
