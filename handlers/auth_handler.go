@@ -14,11 +14,10 @@ type RegisterRequest struct {
 	ConfirmPassword string `json:"confirm_password" binding:"required"`
 }
 
-// RegisterHandler handles the user registration
+
 func Register(c *gin.Context) {
 	var request RegisterRequest
 
-	// Bind JSON request to struct
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  false,
@@ -27,14 +26,12 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	// Create user input model
 	userInput := models.User{
 		Email:    request.Email,
 		Password: request.Password,
 	}
 
-	// Call the controller function
-	user, err := controllers.RegisterUser(userInput, request.ConfirmPassword)
+	user, token, err := controllers.RegisterUser(userInput, request.ConfirmPassword)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  false,
@@ -49,6 +46,7 @@ func Register(c *gin.Context) {
 		"data": gin.H{
 			"email": user.Email,
 			"id":    user.ID,
+			"token": token,
 		},
 	})
 }
@@ -102,4 +100,26 @@ func Login(c *gin.Context) {
 	c.JSON(200, gin.H{
 		"token": token,
 	})
+}
+
+func LoginAdmin(c *gin.Context) {
+    var input struct {
+        Username    string `json:"username"`
+        Password string `json:"password"`
+    }
+
+    if err := c.ShouldBindJSON(&input); err != nil {
+        c.JSON(400, gin.H{"error": "Invalid data"})
+        return
+    }
+
+    token, err := controllers.LoginAdmin(input.Username, input.Password)
+    if err != nil {
+        c.JSON(401, gin.H{"error": "Invalid username or password"})
+        return
+    }
+
+    c.JSON(200, gin.H{
+        "token": token,
+    })
 }

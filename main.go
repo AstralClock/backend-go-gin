@@ -28,6 +28,7 @@ func main() {
 
 	// Public routes
 	r.POST("/register", handlers.Register)
+	r.POST("/loginadmin", handlers.LoginAdmin)
 	r.POST("/login", handlers.Login)
 	r.GET("/verify-email", handlers.VerifyEmail)
 	r.POST("/payment/notification/:id", orderController.HandlePaymentNotification)
