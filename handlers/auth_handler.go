@@ -17,7 +17,7 @@ func Login(c *gin.Context) {
         return
     }
 
-    token, err := controllers.LoginUser(input.Username, input.Password)
+    token, err := controllers.LoginAdmin(input.Username, input.Password)
     if err != nil {
         c.JSON(401, gin.H{"error": "Invalid username or password"})
         return

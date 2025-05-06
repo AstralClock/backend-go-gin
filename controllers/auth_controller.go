@@ -15,7 +15,7 @@ var adminUser = struct {
 }
 
 // LoginUser authenticates the admin user and returns a JWT token
-func LoginUser(Username, password string) (string, error) {
+func LoginAdmin(Username, password string) (string, error) {
     if Username != adminUser.Username || password != adminUser.Password {
         return "", errors.New("invalid Username or password")
     }
