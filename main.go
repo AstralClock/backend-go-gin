@@ -58,9 +58,11 @@ func main() {
 	r.GET("/user/orders", middleware.AuthMiddleware(), orderController.GetUserOrderDetails)
 	r.GET("/user/orders/:id", middleware.AuthMiddleware(), orderController.GetUserOrderByID)
 
-	r.GET("/orders1", orderController.GetAllOrderDetails)       // Get all orders
-	r.GET("/orders1/:id", orderController.GetOrderByID)   // Get order by ID
-	r.PUT("/orders1/:id", orderController.UpdateOrder)    // Update order
+	r.GET("/orders", orderController.GetAllOrderDetails) // Get all orders
+	r.GET("/orders/:id", orderController.GetOrderByID)   // Get order by ID
+	r.PUT("/orders/:id", orderController.UpdateOrder)    // Update order
+
+	r.Static("/uploads", "./uploads")
 
 	r.Run(":8000")
 }
