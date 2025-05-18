@@ -1,16 +1,16 @@
 package controllers
 
 import (
-	"fmt"
-	"net/http"
-	"strconv"
-
 	"backend-go-gin/config"
 	"backend-go-gin/models"
 	"backend-go-gin/services"
 	"backend-go-gin/utils"
+	"fmt"
+	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type OrderController struct {
@@ -25,7 +25,10 @@ func NewOrderController() *OrderController {
 
 func (oc *OrderController) CheckoutSelectedItems(c *gin.Context) {
 	var request struct {
-		CartDetailIDs []uint `json:"cart_detail_ids" binding:"required,min=1"`
+		Items []struct {
+			CartDetailID uint `json:"cart_detail_id" binding:"required"`
+			UkuranID     uint `json:"ukuran_id" binding:"required"` // Tambahkan ini
+		} `json:"items" binding:"required,min=1"`
 	}
 
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -53,12 +56,17 @@ func (oc *OrderController) CheckoutSelectedItems(c *gin.Context) {
 		return
 	}
 
+	var cartDetailIDs []uint
+	for _, item := range request.Items {
+		cartDetailIDs = append(cartDetailIDs, item.CartDetailID)
+	}
+
 	// Get selected cart details with product info and cart ownership validation
 	var cartDetails []models.CartDetail
 	if err := config.DB.
 		Preload("Produk").
 		Joins("JOIN carts ON carts.id = cart_details.cart_id").
-		Where("cart_details.id IN ?", request.CartDetailIDs).
+		Where("cart_details.id IN ?", cartDetailIDs).
 		Where("carts.user_id = ?", userIDUint).
 		Find(&cartDetails).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get cart items"})
@@ -75,9 +83,10 @@ func (oc *OrderController) CheckoutSelectedItems(c *gin.Context) {
 	totalBarang := 0
 	totalHarga := 0.0
 
-	for _, cartDetail := range cartDetails {
+	for i, cartDetail := range cartDetails {
 		orderDetail := models.OrderDetail{
 			ProdukID:    cartDetail.ProdukID,
+			UkuranID:    request.Items[i].UkuranID, // Pastikan UkuranID bertipe uint
 			TotalProduk: cartDetail.Quantity,
 			HargaSatuan: cartDetail.Price,
 			HargaTotal:  cartDetail.Subtotal,
@@ -87,6 +96,29 @@ func (oc *OrderController) CheckoutSelectedItems(c *gin.Context) {
 		totalBarang += cartDetail.Quantity
 		totalHarga += cartDetail.Subtotal
 	}
+
+	for i, item := range request.Items {
+		var stok int
+		err := config.DB.
+			Model(&models.ProdukUkuran{}).
+			Where("produk_id = ? AND ukuran_id = ?", cartDetails[i].ProdukID, item.UkuranID).
+			Select("stok").
+			Scan(&stok).Error
+
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": fmt.Sprintf("Stok tidak ditemukan untuk produk %s ukuran ini", cartDetails[i].Produk.NamaProduk),
+			})
+			return
+		}
+
+		if stok < cartDetails[i].Quantity {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": fmt.Sprintf("Stok tidak cukup untuk produk %s ukuran ini. Stok tersedia: %d", cartDetails[i].Produk.NamaProduk, stok),
+			})
+			return
+		}
+	}	
 
 	// Create invoice number
 	invoiceNumber := "INV-" + utils.RandomString(8)
@@ -163,7 +195,7 @@ func (oc *OrderController) CheckoutSelectedItems(c *gin.Context) {
 
 	// Hapus cart details yang sudah dipilih
 	if err := config.DB.
-		Where("id IN ?", request.CartDetailIDs).
+		Where("id IN ?", cartDetailIDs).
 		Delete(&models.CartDetail{}).Error; err != nil {
 		// Tidak return error, hanya log karena order sudah berhasil dibuat
 		fmt.Printf("Failed to delete cart details: %v\n", err)
@@ -272,31 +304,38 @@ func (oc *OrderController) HandlePaymentNotification(c *gin.Context) {
 
 // Fungsi baru untuk mengurangi stok produk
 func (oc *OrderController) updateProductStock(orderID uint) error {
-	// Ambil semua order detail untuk order ini
-	var orderDetails []models.OrderDetail
-	if err := config.DB.Where("order_id = ?", orderID).Find(&orderDetails).Error; err != nil {
-		return err
-	}
+    // Ambil semua order detail untuk order ini
+    var orderDetails []models.OrderDetail
+    if err := config.DB.Preload("Produk").Where("order_id = ?", orderID).Find(&orderDetails).Error; err != nil {
+        return err
+    }
 
-	// Kurangi stok untuk setiap produk
-	for _, detail := range orderDetails {
-		var product models.Produk
-		if err := config.DB.First(&product, detail.ProdukID).Error; err != nil {
-			return err
-		}
+    // Kurangi stok untuk setiap produk dan ukuran
+    for _, detail := range orderDetails {
+        // Update stok di tabel produk_ukurans
+        result := config.DB.
+            Model(&models.ProdukUkuran{}).
+            Where("produk_id = ? AND ukuran_id = ?", detail.ProdukID, detail.UkuranID).
+            Update("stok", gorm.Expr("stok - ?", detail.TotalProduk))
+        
+        if result.Error != nil {
+            return result.Error
+        }
+        
+        if result.RowsAffected == 0 {
+            return fmt.Errorf("stok tidak ditemukan untuk produk %d ukuran %d", detail.ProdukID, detail.UkuranID)
+        }
 
-		// Pastikan stok cukup sebelum dikurangi
-		if product.Jumlah < detail.TotalProduk {
-			return fmt.Errorf("not enough stock for product %d", product.ID)
-		}
+        // Update stok total produk (opsional)
+        if err := config.DB.
+            Model(&models.Produk{}).
+            Where("id = ?", detail.ProdukID).
+            Update("jumlah", gorm.Expr("jumlah - ?", detail.TotalProduk)).Error; err != nil {
+            return err
+        }
+    }
 
-		product.Jumlah -= detail.TotalProduk
-		if err := config.DB.Save(&product).Error; err != nil {
-			return err
-		}
-	}
-
-	return nil
+    return nil
 }
 
 func calculateTotals(details []models.OrderDetail) (int, float64) {
@@ -385,22 +424,22 @@ func (oc *OrderController) GetAllOrders(c *gin.Context) {
 }
 
 func (oc *OrderController) GetUserOrderByID(c *gin.Context) {
-    orderID := c.Param("id")
-    userID, _ := c.Get("userID")
+	orderID := c.Param("id")
+	userID, _ := c.Get("userID")
 
-    var order models.Order
-    if err := config.DB.
-        Preload("OrderDetails.Produk").
-        Where("id = ? AND user_id = ?", orderID, userID).
-        First(&order).Error; err != nil {
-        c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
-        return
-    }
+	var order models.Order
+	if err := config.DB.
+		Preload("OrderDetails.Produk").
+		Where("id = ? AND user_id = ?", orderID, userID).
+		First(&order).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+		return
+	}
 
-    // Format response sesuai kebutuhan
-    c.JSON(http.StatusOK, gin.H{
-        "data":    order,
-    })
+	// Format response sesuai kebutuhan
+	c.JSON(http.StatusOK, gin.H{
+		"data": order,
+	})
 }
 
 func (oc *OrderController) GetUserOrderDetails(c *gin.Context) {
@@ -454,7 +493,7 @@ func (oc *OrderController) GetUserOrderDetails(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"data":    response,
+		"data": response,
 	})
 }
 

@@ -15,8 +15,9 @@ type UpdateCartItemRequest struct {
 }
 
 type AddToCartRequest struct {
-	ProdukID uint `json:"produk_id" binding:"required"`
-	Quantity int  `json:"quantity" binding:"required,min=1"`
+    ProdukID uint `json:"produk_id" binding:"required"`
+    UkuranID uint `json:"ukuran_id" binding:"required"`
+    Quantity int  `json:"quantity" binding:"required,min=1"`
 }
 
 
@@ -46,13 +47,24 @@ func AddToCart(c *gin.Context) {
 		return
 	}
 
-	cartDetail := models.CartDetail{
-		CartID:    cart.ID,
-		ProdukID:  req.ProdukID,
-		Quantity:  req.Quantity,
-		Price:     produk.Harga,
-		Subtotal:  produk.Harga * float64(req.Quantity),
-	}
+	var ukuran models.Ukuran
+    err = config.DB.
+        Joins("JOIN produk_ukurans ON produk_ukurans.ukuran_id = ukurans.id").
+        Where("ukurans.id = ? AND produk_ukurans.produk_id = ?", req.UkuranID, req.ProdukID).
+        First(&ukuran).Error
+    if err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Ukuran tidak tersedia untuk produk ini"})
+        return
+    }
+
+    cartDetail := models.CartDetail{
+        CartID:    cart.ID,
+        ProdukID:  req.ProdukID,
+        UkuranID:  req.UkuranID,
+        Quantity:  req.Quantity,
+        Price:     produk.Harga,
+        Subtotal:  produk.Harga * float64(req.Quantity),
+    }
 
 	if err := config.DB.Create(&cartDetail).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menambahkan item ke keranjang"})
