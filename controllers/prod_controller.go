@@ -63,6 +63,20 @@ func GetAllProducts(c *gin.Context) {
     c.JSON(http.StatusOK, gin.H{"products": products})
 }
 
+// GetProductByID retrieves a product by its ID
+func GetProductByID(c *gin.Context) {
+    id := c.Param("id")
+
+    var product models.Produk
+    // Find the product by ID
+    if err := config.DB.First(&product, id).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{"product": product})
+}
+
 // EditProduct updates a product by its ID
 func EditProduct(c *gin.Context) {
     id := c.Param("id")

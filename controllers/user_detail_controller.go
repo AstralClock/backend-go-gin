@@ -12,13 +12,14 @@ import (
 
 type UserDetailController struct{}
 
-func (uc *UserDetailController) SaveUserDetail(userID uint, nama, telepon, alamat, kodepos, provinsi, imgPath string) (*models.UserDetail, error) {
+func (uc *UserDetailController) SaveUserDetail(userID uint, nama, telepon, alamat, kodepos, kota, provinsi, imgPath string) (*models.UserDetail, error) {
 	userDetail := models.UserDetail{
 		UserID:   userID,
 		Nama:     nama,
 		Telepon:  telepon,
 		Alamat:   alamat,
 		Kodepos:  kodepos,
+		Kota:     kota,
 		Provinsi: provinsi,
 		Img:      imgPath,
 	}
@@ -31,43 +32,46 @@ func (uc *UserDetailController) SaveUserDetail(userID uint, nama, telepon, alama
 	return &userDetail, nil
 }
 
-func (uc *UserDetailController) UpdateUserDetail(userID uint, nama, telepon, alamat, kodepos, provinsi *string, imgPath string) (*models.UserDetail, error) {
-    var userDetail models.UserDetail
-    if err := config.DB.Where("user_id = ?", userID).First(&userDetail).Error; err != nil {
-        return nil, err
-    }
+func (uc *UserDetailController) UpdateUserDetail(userID uint, nama, telepon, alamat, kota, kodepos, provinsi *string, imgPath string) (*models.UserDetail, error) {
+	var userDetail models.UserDetail
+	if err := config.DB.Where("user_id = ?", userID).First(&userDetail).Error; err != nil {
+		return nil, err
+	}
 
-    // Update field yang diubah
-    if nama != nil {
-        userDetail.Nama = *nama
-    }
-    if telepon != nil {
-        userDetail.Telepon = *telepon
-    }
-    if alamat != nil {
-        userDetail.Alamat = *alamat
-    }
-    if kodepos != nil {
-        userDetail.Kodepos = *kodepos
-    }
-    if provinsi != nil {
-        userDetail.Provinsi = *provinsi
-    }
+	// Update field yang diubah
+	if nama != nil {
+		userDetail.Nama = *nama
+	}
+	if telepon != nil {
+		userDetail.Telepon = *telepon
+	}
+	if alamat != nil {
+		userDetail.Alamat = *alamat
+	}
+	if kota != nil {
+		userDetail.Kota = *kota
+	}
+	if kodepos != nil {
+		userDetail.Kodepos = *kodepos
+	}
+	if provinsi != nil {
+		userDetail.Provinsi = *provinsi
+	}
 
-    if imgPath != "" {
-        if userDetail.Img != "" {
-            if err := os.Remove(userDetail.Img); err != nil {
-                log.Printf("Gagal menghapus gambar lama: %v", err)
-            }
-        }
-        userDetail.Img = imgPath
-    }
+	if imgPath != "" {
+		if userDetail.Img != "" {
+			if err := os.Remove(userDetail.Img); err != nil {
+				log.Printf("Gagal menghapus gambar lama: %v", err)
+			}
+		}
+		userDetail.Img = imgPath
+	}
 
-    if err := config.DB.Save(&userDetail).Error; err != nil {
-        return nil, err
-    }
+	if err := config.DB.Save(&userDetail).Error; err != nil {
+		return nil, err
+	}
 
-    return &userDetail, nil
+	return &userDetail, nil
 }
 
 type UserController struct{}
@@ -125,31 +129,31 @@ func (uc *UserController) GetUserDetailByID(c *gin.Context) {
 
 // controllers/user_controller.go
 func (uc *UserController) GetCurrentUserDetail(c *gin.Context) {
-    // Ambil userID dari JWT
-    userID, exists := c.Get("userID")
-    if !exists {
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-        return
-    }
+	// Ambil userID dari JWT
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
 
-    var result struct {
-        models.UserDetail
-        Email string `json:"email"`
-    }
+	var result struct {
+		models.UserDetail
+		Email string `json:"email"`
+	}
 
-    // Query dengan join
-    if err := config.DB.
-        Table("user_details").
-        Select("user_details.*, users.email").
-        Joins("LEFT JOIN users ON users.id = user_details.user_id").
-        Where("user_details.user_id = ?", userID).
-        First(&result).Error; err != nil {
-        c.JSON(http.StatusNotFound, gin.H{"error": "User detail not found"})
-        return
-    }
+	// Query dengan join
+	if err := config.DB.
+		Table("user_details").
+		Select("user_details.*, users.email").
+		Joins("LEFT JOIN users ON users.id = user_details.user_id").
+		Where("user_details.user_id = ?", userID).
+		First(&result).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User detail not found"})
+		return
+	}
 
-    c.JSON(http.StatusOK, gin.H{
-        "message": "User detail retrieved successfully",
-        "data":    result,
-    })
+	c.JSON(http.StatusOK, gin.H{
+		"message": "User detail retrieved successfully",
+		"data":    result,
+	})
 }

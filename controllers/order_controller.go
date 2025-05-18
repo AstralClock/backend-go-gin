@@ -457,3 +457,74 @@ func (oc *OrderController) GetUserOrderDetails(c *gin.Context) {
 		"data":    response,
 	})
 }
+
+func (oc *OrderController) GetAllOrderDetails(c *gin.Context) {
+	var orderDetails []models.OrderDetail
+	err := config.DB.
+		Preload("Order.User.UserDetail"). // Preload nested User and UserDetail
+		Preload("Produk").                // Preload Produk
+		Find(&orderDetails).Error
+	if err != nil {
+		fmt.Println("Error fetching order details:", err) // Debugging log
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve order details"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":       "Order details retrieved successfully",
+		"order_details": orderDetails,
+	})
+}
+
+func (oc *OrderController) GetOrderByID1(c *gin.Context) {
+	orderID := c.Param("id") // Get the order ID from the URL parameter
+
+	var order models.Order
+	if err := config.DB.Preload("OrderDetails").Preload("User.UserDetail").First(&order, orderID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Order retrieved successfully",
+		"order":   order,
+	})
+}
+
+func (oc *OrderController) UpdateOrder(c *gin.Context) {
+	orderID := c.Param("id") // Get the order ID from the URL parameter
+
+	var request struct {
+		Status           string `json:"status"`
+		MetodePembayaran string `json:"metode_pembayaran"`
+	}
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var order models.Order
+	if err := config.DB.First(&order, orderID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+		return
+	}
+
+	// Update the order fields
+	if request.Status != "" {
+		order.Status = request.Status
+	}
+	if request.MetodePembayaran != "" {
+		order.MetodePembayaran = request.MetodePembayaran
+	}
+
+	if err := config.DB.Save(&order).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update order"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Order updated successfully",
+		"order":   order,
+	})
+}

@@ -41,6 +41,7 @@ func main() {
 	r.POST("/addproducts", handlers.AddProductHandler)
 	r.DELETE("/delproducts/:id", handlers.DeleteProductHandler)
 	r.GET("/products", handlers.GetAllProductsHandler)
+	r.GET("/products/:id", handlers.GetProductByIDHandler)
 	r.PUT("/editproducts/:id", handlers.EditProductHandler)
 	r.POST("/upload/products/:id", handlers.UploadProductImages)
 
@@ -56,6 +57,10 @@ func main() {
 	r.GET("/getuserlogin", middleware.AuthMiddleware(), userDetail.GetCurrentUserDetail)
 	r.GET("/user/orders", middleware.AuthMiddleware(), orderController.GetUserOrderDetails)
 	r.GET("/user/orders/:id", middleware.AuthMiddleware(), orderController.GetUserOrderByID)
+
+	r.GET("/orders1", orderController.GetAllOrderDetails)       // Get all orders
+	r.GET("/orders1/:id", orderController.GetOrderByID)   // Get order by ID
+	r.PUT("/orders1/:id", orderController.UpdateOrder)    // Update order
 
 	r.Run(":8000")
 }
