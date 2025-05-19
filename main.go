@@ -50,12 +50,17 @@ func main() {
 	r.PUT("/updatecartdetail/:id", middleware.AuthMiddleware(), handlers.UpdateCartItem)
 	r.DELETE("/deletecart/:id", middleware.AuthMiddleware(), handlers.DeleteCartItem)
 	r.POST("/orders", middleware.AuthMiddleware(), orderController.CheckoutSelectedItems)
-	r.POST("/payment/notification/:id", orderController.HandlePaymentNotification)
+	r.GET("/carts", middleware.AuthMiddleware(), cartsController.GetUserCart)
+	r.GET("/cartdetail", middleware.AuthMiddleware(), cartsController.GetUserCartDetails)
+	r.GET("/getuserlogin", middleware.AuthMiddleware(), userDetail.GetCurrentUserDetail)
+	r.GET("/user/orders", middleware.AuthMiddleware(), orderController.GetUserOrderDetails)
+	r.GET("/user/orders/:id", middleware.AuthMiddleware(), orderController.GetUserOrderByID)
 
-	r.GET("/orders", orderController.GetAllOrderDetails)       // Get all orders
+	r.GET("/orders", orderController.GetAllOrderDetails) // Get all orders
 	r.GET("/orders/:id", orderController.GetOrderByID)   // Get order by ID
 	r.PUT("/orders/:id", orderController.UpdateOrder)    // Update order
 
 	r.Static("/uploads", "./uploads")
+
 	r.Run(":8000")
 }

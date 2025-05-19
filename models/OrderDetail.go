@@ -9,6 +9,8 @@ type OrderDetail struct {
     TotalProduk int     `json:"total_produk" gorm:"not null"`
     HargaSatuan float64 `json:"harga_satuan" gorm:"not null"`
     HargaTotal  float64 `json:"harga_total" gorm:"not null"`
+    UkuranID    uint    `json:"ukuran_id"`
     Order       Order   `gorm:"foreignKey:OrderID"`            // Relasi ke Order
     Produk      Produk  `gorm:"foreignKey:ProdukID"`           // Relasi ke Produk
+    Ukuran      Ukuran  `gorm:"foreignKey:UkuranID"`
 }

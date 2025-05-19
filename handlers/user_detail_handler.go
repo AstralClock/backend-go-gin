@@ -31,6 +31,7 @@ func (uh *UserDetailHandler) SaveUserDetail(c *gin.Context) {
 		Nama     string `form:"nama" binding:"required"`
 		Telepon  string `form:"telepon" binding:"required"`
 		Alamat   string `form:"alamat" binding:"required"`
+		Kota     string `form:"kota" binding:"required"`
 		Kodepos  string `form:"kodepos" binding:"required"`
 		Provinsi string `form:"provinsi" binding:"required"`
 	}
@@ -71,6 +72,7 @@ func (uh *UserDetailHandler) SaveUserDetail(c *gin.Context) {
 		request.Telepon,
 		request.Alamat,
 		request.Kodepos,
+		request.Kota,
 		request.Provinsi,
 		imgPath,
 	)
@@ -97,6 +99,7 @@ func (uh *UserDetailHandler) UpdateUserDetail(c *gin.Context) {
         Nama     *string `form:"nama"`
         Telepon  *string `form:"telepon"`
         Alamat   *string `form:"alamat"`
+		Kota     *string `form:"kota"`
         Kodepos  *string `form:"kodepos"`
         Provinsi *string `form:"provinsi"`
     }
@@ -135,6 +138,7 @@ func (uh *UserDetailHandler) UpdateUserDetail(c *gin.Context) {
         request.Nama,
         request.Telepon,
         request.Alamat,
+		request.Kota,
         request.Kodepos,
         request.Provinsi,
         imgPath,
