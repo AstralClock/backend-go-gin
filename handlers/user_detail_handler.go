@@ -153,4 +153,3 @@ func (uh *UserDetailHandler) UpdateUserDetail(c *gin.Context) {
         "data":    userDetail,
     })
 }
-
