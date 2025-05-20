@@ -12,4 +12,5 @@ type Produk struct {
     Jumlah     int       `json:"jumlah" gorm:"not null"`
     Image      string    `json:"image" gorm:"not null"`
     Ukurans    []Ukuran  `gorm:"many2many:produk_ukurans;"` // Perubahan utama di sini
+    ProdukUkuranStock []ProdukUkuran   `gorm:"foreignKey:ProdukID"`
 }
