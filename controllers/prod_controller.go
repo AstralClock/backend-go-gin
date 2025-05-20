@@ -53,14 +53,69 @@ func DeleteProduct(c *gin.Context) {
 }
 
 // GetAllProducts returns all products from the database
-func GetAllProducts(c *gin.Context) {
-    var products []models.Produk
-    if err := config.DB.Find(&products).Error; err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-        return
-    }
 
-    c.JSON(http.StatusOK, gin.H{"products": products})
+func GetAllProducts(c *gin.Context) {
+	var products []models.Produk
+	
+	// Preload relasi yang diperlukan
+	if err := config.DB.
+		Preload("Ukurans").
+		Preload("ProdukUkuranStock.Ukuran").
+		Find(&products).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Format response
+	type ukuranResponse struct {
+		ID   uint   `json:"id"`
+		Nama string `json:"nama"`
+		Stok int    `json:"stok"`
+	}
+
+	type produkResponse struct {
+		ID         uint             `json:"id"`
+		CreatedAt  string           `json:"created_at"`
+		UpdatedAt  string           `json:"updated_at"`
+		NamaProduk string           `json:"nama_produk"`
+		Deskripsi  string           `json:"deskripsi"`
+		Kategori   string           `json:"kategori"`
+		Tag        string           `json:"tag"`
+		Harga      float64          `json:"harga"`
+		Jumlah     int              `json:"jumlah"`
+		Image      string           `json:"image"`
+		Ukurans    []ukuranResponse `json:"ukurans"`
+	}
+
+	var response []produkResponse
+	
+	for _, p := range products {
+		// Map ukuran dengan stok
+		var ukurans []ukuranResponse
+		for _, pu := range p.ProdukUkuranStock {
+			ukurans = append(ukurans, ukuranResponse{
+				ID:   pu.Ukuran.ID,
+				Nama: pu.Ukuran.Ukuran,
+				Stok: pu.Stok,
+			})
+		}
+
+		response = append(response, produkResponse{
+			ID:         p.ID,
+			NamaProduk: p.NamaProduk,
+			Deskripsi:  p.Deskripsi,
+			Kategori:   p.Kategori,
+			Tag:        p.Tag,
+			Harga:      p.Harga,
+			Jumlah:     p.Jumlah,
+			Image:      p.Image,
+			Ukurans:    ukurans,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"products": response,
+	})
 }
 
 // GetProductByID retrieves a product by its ID

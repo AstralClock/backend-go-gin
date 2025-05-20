@@ -14,3 +14,7 @@ type Produk struct {
     Ukurans    []Ukuran  `gorm:"many2many:produk_ukurans;"` // Perubahan utama di sini
     ProdukUkuranStock []ProdukUkuran   `gorm:"foreignKey:ProdukID"`
 }
+
+type Model struct {
+    ID        uint           `json:"id" gorm:"primarykey"`
+}
