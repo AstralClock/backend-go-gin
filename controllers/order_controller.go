@@ -27,7 +27,8 @@ func (oc *OrderController) CheckoutSelectedItems(c *gin.Context) {
 	var request struct {
 		Items []struct {
 			CartDetailID uint `json:"cart_detail_id" binding:"required"`
-			UkuranID     uint `json:"ukuran_id" binding:"required"` // Tambahkan ini
+			UkuranID     uint `json:"ukuran_id" binding:"required"`
+			Quantity     int  `json:"quantity" binding:"required,gt=0"` // ✅ Tambahkan ini
 		} `json:"items" binding:"required,min=1"`
 	}
 
@@ -454,6 +455,7 @@ func (oc *OrderController) GetUserOrderDetails(c *gin.Context) {
 	if err := config.DB.
 		Preload("User.UserDetail").
 		Preload("OrderDetails.Produk").
+		Preload("Payment"). // <-- TAMBAHKAN PRELOAD PAYMENT DI SINI
 		Where("user_id = ?", userID).
 		Find(&orders).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch orders"})
@@ -469,7 +471,7 @@ func (oc *OrderController) GetUserOrderDetails(c *gin.Context) {
 				"produk": gin.H{
 					"id":    detail.Produk.ID,
 					"name":  detail.Produk.NamaProduk,
-					"price": detail.Produk.Harga,
+					"price": detail.Produk.Harga, // Asumsi ada field Harga di model Produk
 				},
 				"quantity":   detail.TotalProduk,
 				"subtotal":   detail.HargaTotal,
@@ -477,18 +479,26 @@ func (oc *OrderController) GetUserOrderDetails(c *gin.Context) {
 			})
 		}
 
+		paymentRedirectURL := ""
+		if order.Payment.ID > 0 {
+			paymentRedirectURL = order.Payment.PaymentRedirectURL
+		}
+
 		response = append(response, gin.H{
-			"order_id":     order.ID,
-			"invoice":      order.Invoice,
-			"total_amount": order.TotalHarga,
-			"created_at":   order.CreatedAt,
-			"order_items":  orderDetails,
+			"order_id":             order.ID,
+			"invoice":              order.Invoice,
+			"total_amount":         order.TotalHarga,
+			"status":               order.Status, // Mungkin ingin menambahkan status order juga
+			"created_at":           order.CreatedAt,
+			"order_items":          orderDetails,
 			"user": gin.H{
 				"name":    order.User.UserDetail.Nama,
 				"email":   order.User.Email,
 				"phone":   order.User.UserDetail.Telepon,
 				"address": order.User.UserDetail.Alamat,
 			},
+			"payment_redirect_url": paymentRedirectURL, 
+			"payment_status":       order.Payment.Status,
 		})
 	}
 

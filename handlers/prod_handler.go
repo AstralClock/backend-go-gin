@@ -23,42 +23,45 @@ func DeleteProductHandler(c *gin.Context) {
 }
 
 func GetProductByIDHandler(c *gin.Context) {
-	id := c.Param("id")
+    id := c.Param("id")
 
-	var produk models.Produk
-	if err := config.DB.Preload("Ukurans").
-		Preload("ProdukUkuranStock.Ukuran").
-		First(&produk, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
-		return
-	}
+    var produk models.Produk
+    if err := config.DB.Preload("Ukurans").
+        Preload("ProdukUkuranStock.Ukuran").
+        First(&produk, id).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+        return
+    }
 
-	// Membuat response dengan struktur yang diinginkan
-	response := gin.H{
-		"id":          produk.ID,
-		"nama_produk": produk.NamaProduk,
-		"deskripsi":   produk.Deskripsi,
-		"kategori":    produk.Kategori,
-		"tag":         produk.Tag,
-		"harga":       produk.Harga,
-		"jumlah":      produk.Jumlah,
-		"image":       produk.Image,
-		"created_at":  produk.CreatedAt,
-		"updated_at":  produk.UpdatedAt,
-		"ukurans":     []gin.H{},
-	}
+    // Membuat struktur untuk ukuran dengan stok
+    var ukurans []gin.H
+    for _, pu := range produk.ProdukUkuranStock {
+        ukurans = append(ukurans, gin.H{
+            "id":   pu.Ukuran.ID,
+            "nama": pu.Ukuran.Ukuran, // Pastikan ini sesuai field di model Ukuran
+            "stok": pu.Stok,
+        })
+    }
 
-	// Menambahkan data ukuran beserta stok
-	for _, pu := range produk.ProdukUkuranStock {
-		ukuranData := gin.H{
-			"id":   pu.Ukuran.ID,
-			"nama": pu.Ukuran.Ukuran,
-			"stok": pu.Stok,
-		}
-		response["ukurans"] = append(response["ukurans"].([]gin.H), ukuranData)
-	}
-
-	c.JSON(http.StatusOK, response)
+    // Membuat response dengan wrapper data
+    c.JSON(http.StatusOK, gin.H{
+        "data": gin.H{
+            "id":          produk.ID,
+            "nama_produk": produk.NamaProduk,
+            "deskripsi":   produk.Deskripsi,
+            "kategori":    produk.Kategori,
+            "tag":         produk.Tag,
+            "harga":       produk.Harga,
+            "jumlah":      produk.Jumlah,
+            "image":       produk.Image,
+            "created_at":  produk.CreatedAt,
+            "updated_at":  produk.UpdatedAt,
+            "ukurans":     ukurans,
+        },
+        "meta": gin.H{
+            "status": "success",
+        },
+    })
 }
 
 // GetAllProductsHandler handles the request to get all products

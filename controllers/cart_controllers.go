@@ -96,41 +96,90 @@ func (cc *CartController) GetUserCart(c *gin.Context) {
 	var cart models.Cart
 	if err := config.DB.
 		Preload("User").
+		Preload("CartDetails", "deleted_at IS NULL"). // Hanya yang belum dihapus
 		Where("user_id = ?", userID).
 		First(&cart).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Cart not found"})
 		return
 	}
 
+	// Hitung total item yang belum dihapus
+	var activeCartItemsCount int64
+	config.DB.Model(&models.CartDetail{}).
+		Where("cart_id = ? AND deleted_at IS NULL", cart.ID).
+		Count(&activeCartItemsCount)
+
+	// Hitung total harga dari item yang belum dihapus
+	var totalPrice float64
+	config.DB.Model(&models.CartDetail{}).
+		Select("COALESCE(SUM(harga * jumlah), 0)").
+		Where("cart_id = ? AND deleted_at IS NULL", cart.ID).
+		Scan(&totalPrice)
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Cart retrieved successfully",
-		"cart":    cart,
+		"data": gin.H{
+			"cart":              cart,
+			"total_items":       activeCartItemsCount,
+			"total_price":       totalPrice,
+			"active_cart_items": activeCartItemsCount,
+		},
 	})
 }
 
 // GetUserCartDetails - Get cart details for logged in user
 func (cc *CartController) GetUserCartDetails(c *gin.Context) {
-	// Ambil userID dari JWT
-	userID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-		return
-	}
+    // Ambil userID dari JWT
+    userID, exists := c.Get("userID")
+    if !exists {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+        return
+    }
 
-	var cartDetails []models.CartDetail
-	if err := config.DB.
-		Preload("Produk").
-		Joins("JOIN carts ON carts.id = cart_details.cart_id").
-		Where("carts.user_id = ?", userID).
-		Find(&cartDetails).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get cart items"})
-		return
-	}
+    var cartDetails []models.CartDetail
+    if err := config.DB.
+        Preload("Produk").
+        Preload("Ukuran").
+        Joins("JOIN carts ON carts.id = cart_details.cart_id").
+        Where("carts.user_id = ? AND cart_details.deleted_at IS NULL", userID).
+        Find(&cartDetails).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get cart items"})
+        return
+    }
 
-	c.JSON(http.StatusOK, gin.H{
-		"message":    "Cart items retrieved successfully",
-		"cart_items": cartDetails,
-	})
+    // Format response langsung menggunakan model yang sudah di-preload
+    type cartItemResponse struct {
+        ID         uint     `json:"id"`
+        ProdukID   uint     `json:"produk_id"`
+        NamaProduk string   `json:"nama_produk"`
+        Harga      float64  `json:"harga"`
+        Quantity   int      `json:"quantity"`
+        Subtotal   float64  `json:"subtotal"`
+        Ukuran     string   `json:"ukuran,omitempty"` // Nama ukuran jika ada
+        Image      string   `json:"image"`
+    }
+
+    var response []cartItemResponse
+    for _, item := range cartDetails {
+        ukuran := ""
+        if item.Ukuran.ID != 0 { // Cek apakah ada ukuran
+            ukuran = item.Ukuran.Ukuran
+        }
+
+        response = append(response, cartItemResponse{
+            ID:         item.ID,
+            ProdukID:   item.ProdukID,
+            NamaProduk: item.Produk.NamaProduk,
+            Harga:      item.Price,
+            Quantity:   item.Quantity,
+            Subtotal:   item.Subtotal,
+            Ukuran:     ukuran,
+            Image:      item.Produk.Image,
+        })
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "message":    "Cart items retrieved successfully",
+        "cart_items": response,
+    })
 }
-
-

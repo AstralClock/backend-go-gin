@@ -12,4 +12,5 @@ type Order struct {
 	UserID           uint          `json:"user_id" gorm:"not null"`
 	User             User          `gorm:"foreignKey:UserID"`
 	OrderDetails     []OrderDetail `gorm:"foreignKey:OrderID"`
+	Payment          Payment       `json:"payment,omitempty" gorm:"foreignKey:OrderID;references:ID"`
 }

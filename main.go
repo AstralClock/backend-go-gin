@@ -25,6 +25,7 @@ func main() {
 	orderController := controllers.NewOrderController()
 	userDetail := controllers.NewUserController()
 	cartsController := controllers.NewCartsController()
+	ulasanController := controllers.NewUlasanController()
 
 	// Public routes
 	r.POST("/register", handlers.Register)
@@ -57,6 +58,7 @@ func main() {
 	r.GET("/getuserlogin", middleware.AuthMiddleware(), userDetail.GetCurrentUserDetail)
 	r.GET("/user/orders", middleware.AuthMiddleware(), orderController.GetUserOrderDetails)
 	r.GET("/user/orders/:id", middleware.AuthMiddleware(), orderController.GetUserOrderByID)
+	r.POST("/ulasan/:id", middleware.AuthMiddleware(), ulasanController.CreateUlasan)
 
 	r.GET("/orders", orderController.GetAllOrderDetails) // Get all orders
 	r.GET("/orders/:id", orderController.GetOrderByID)   // Get order by ID
