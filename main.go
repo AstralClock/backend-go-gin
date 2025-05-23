@@ -34,7 +34,7 @@ func main() {
 	r.GET("/verify-email", handlers.VerifyEmail)
 	r.POST("/payment/notification/:id", orderController.HandlePaymentNotification)
 	r.GET("getorders", orderController.GetAllOrders)
-	r.GET("gerorder/:id", orderController.GetOrderByID)
+	r.GET("gerorder/:id", orderController.GetsOrderByID)
 	r.GET("/users", userDetail.GetAllUserDetails)
 	r.GET("/user/:id", userDetail.GetUserDetailByID)
 
@@ -45,6 +45,8 @@ func main() {
 	r.GET("/products/:id", handlers.GetProductByIDHandler)
 	r.PUT("/editproducts/:id", handlers.EditProductHandler)
 	r.POST("/upload/products/:id", handlers.UploadProductImages)
+	r.GET("/products/:id/sizes", controllers.GetProductWithSizes)
+	r.PUT("/products/:id/sizes", controllers.EditProductSizes)
 
 	// Private routes
 	r.POST("/postuser", middleware.AuthMiddleware(), userDetailHandler.SaveUserDetail)

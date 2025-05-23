@@ -525,7 +525,7 @@ func (oc *OrderController) GetAllOrderDetails(c *gin.Context) {
 	})
 }
 
-func (oc *OrderController) GetOrderByID1(c *gin.Context) {
+func (oc *OrderController) GetsOrderByID(c *gin.Context) {
 	orderID := c.Param("id") // Get the order ID from the URL parameter
 
 	var order models.Order
