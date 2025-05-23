@@ -1,13 +1,14 @@
 package controllers
 
 import (
-	"backend-go-gin/config" 
-	"backend-go-gin/models"   
+	"backend-go-gin/config"
+	"backend-go-gin/models"
+	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm" 
+	"gorm.io/gorm"
 )
 
 type UlasanController struct{}
@@ -98,4 +99,67 @@ func (uc *UlasanController) CreateUlasan(c *gin.Context) {
 		"message": "Ulasan berhasil dibuat",
 		"ulasan":  ulasan,
 	})
+}
+
+
+func (uc *UlasanController) GetUlasanByProductID(c *gin.Context) {
+    productIDStr := c.Param("id")
+    productID, err := strconv.ParseUint(productIDStr, 10, 32)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Format ID Produk tidak valid"})
+        return
+    }
+
+
+    var ulasan []models.Ulasan
+    if err := config.DB.Where("produk_id = ?", productID).
+        Preload("User").
+        Preload("User.UserDetail").
+        Find(&ulasan).Error; err != nil {
+        // Debug 2: Log error database
+        fmt.Printf("Error database: %v\n", err)
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mendapatkan ulasan: " + err.Error()})
+        return
+    }
+
+    // Jika TIDAK ADA ulasan
+    if len(ulasan) == 0 {
+        c.JSON(http.StatusOK, gin.H{
+            "data": nil, // Pastikan ini null
+            "meta": gin.H{
+                "status":  "success",
+                "message": "Tidak ada ulasan untuk produk ini",
+            },
+        })
+        return
+    }
+
+    // Jika ADA ulasan
+    var response []gin.H
+    for _, u := range ulasan {
+        userData := gin.H{"id": u.User.ID, "email": u.User.Email}
+
+        if u.User.UserDetail.UserID != 0 {
+            userData["nama"] = u.User.UserDetail.Nama
+            userData["telepon"] = u.User.UserDetail.Telepon
+        }
+
+        response = append(response, gin.H{
+            "id":         u.ID,
+            "produk_id":  u.ProdukID,
+            "user":       userData,
+            "rating":     u.Rating,
+            "komentar":   u.Ulasan,
+            "created_at": u.CreatedAt,
+            "updated_at": u.UpdatedAt,
+        })
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "data": response,
+        "meta": gin.H{
+            "status":  "success",
+            "message": "Data ulasan berhasil didapatkan",
+        },
+    })
 }

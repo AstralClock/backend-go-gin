@@ -1,11 +1,14 @@
 package handlers
 
 import (
+	"backend-go-gin/config"
 	"backend-go-gin/controllers"
+	"backend-go-gin/models"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -24,9 +27,17 @@ func GetProductByIDHandler(c *gin.Context) {
     controllers.GetProductByID(c)
 }
 
+func GetsProductByIDHandler(c *gin.Context) {
+    controllers.GetsProductByID(c)
+}
+
 // GetAllProductsHandler handles the request to get all products
 func GetAllProductsHandler(c *gin.Context) {
     controllers.GetAllProducts(c)
+}
+
+func GetsAllProductsHandler(c *gin.Context) {
+    controllers.GetsAllProducts(c)
 }
 
 func EditProductHandler(c *gin.Context) {
@@ -66,4 +77,72 @@ func UploadProductImages(c *gin.Context) {
     }
 
     c.JSON(http.StatusOK, gin.H{"message": "Files uploaded successfully"})
+}
+
+func GetProductByIDHandlers(c *gin.Context) {
+    id := c.Param("id")
+
+    var produk models.Produk
+    if err := config.DB.Preload("Ukurans").
+        Preload("ProdukUkuranStock.Ukuran").
+        First(&produk, id).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+        return
+    }
+
+    // Membuat struktur untuk ukuran dengan stok
+    var ukurans []gin.H
+    for _, pu := range produk.ProdukUkuranStock {
+        ukurans = append(ukurans, gin.H{
+            "id":   pu.Ukuran.ID,
+            "nama": pu.Ukuran.Ukuran,
+            "stok": pu.Stok,
+        })
+    }
+
+    // Mendapatkan daftar gambar dari folder uploads
+    uploadPath := filepath.Join("uploads", "products", id)
+    var imageFiles []string
+
+    // Baca direktori jika ada
+    if files, err := os.ReadDir(uploadPath); err == nil {
+        for _, file := range files {
+            if !file.IsDir() && isImageFile(file.Name()) {
+                imagePath := filepath.Join(uploadPath, file.Name())
+                // Anda bisa menyesuaikan path sesuai kebutuhan (relative/absolute)
+                imageFiles = append(imageFiles, imagePath)
+                
+                // Atau jika ingin URL yang bisa diakses:
+                // imageURL := "/" + filepath.ToSlash(imagePath)
+                // imageFiles = append(imageFiles, imageURL)
+            }
+        }
+    }
+
+    // Membuat response dengan wrapper data
+    c.JSON(http.StatusOK, gin.H{
+        "data": gin.H{
+            "id":          produk.ID,
+            "nama_produk": produk.NamaProduk,
+            "deskripsi":   produk.Deskripsi,
+            "kategori":    produk.Kategori,
+            "tag":         produk.Tag,
+            "harga":       produk.Harga,
+            "jumlah":      produk.Jumlah,
+            "image":       produk.Image, // gambar utama jika ada
+            "images":      imageFiles,    // daftar semua gambar
+            "created_at":  produk.CreatedAt,
+            "updated_at":  produk.UpdatedAt,
+            "ukurans":     ukurans,
+        },
+        "meta": gin.H{
+            "status": "success",
+        },
+    })
+}
+
+// Fungsi helper untuk mengecek apakah file adalah gambar
+func isImageFile(filename string) bool {
+    ext := strings.ToLower(filepath.Ext(filename))
+    return ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif"
 }

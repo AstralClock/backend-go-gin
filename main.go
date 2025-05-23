@@ -42,11 +42,14 @@ func main() {
 	r.POST("/addproducts", handlers.AddProductHandler)
 	r.DELETE("/delproducts/:id", handlers.DeleteProductHandler)
 	r.GET("/products", handlers.GetAllProductsHandler)
+	r.GET("/productss", handlers.GetsAllProductsHandler)
 	r.GET("/products/:id", handlers.GetProductByIDHandler)
+	r.GET("/productss/:id", handlers.GetProductByIDHandlers)
 	r.PUT("/editproducts/:id", handlers.EditProductHandler)
 	r.POST("/upload/products/:id", handlers.UploadProductImages)
 	r.GET("/products/:id/sizes", controllers.GetProductWithSizes)
 	r.PUT("/products/:id/sizes", controllers.EditProductSizes)
+	r.GET("/ulasan/:id", ulasanController.GetUlasanByProductID)
 
 	// Private routes
 	r.POST("/postuser", middleware.AuthMiddleware(), userDetailHandler.SaveUserDetail)
@@ -61,6 +64,7 @@ func main() {
 	r.GET("/user/orders", middleware.AuthMiddleware(), orderController.GetUserOrderDetails)
 	r.GET("/user/orders/:id", middleware.AuthMiddleware(), orderController.GetUserOrderByID)
 	r.POST("/ulasan/:id", middleware.AuthMiddleware(), ulasanController.CreateUlasan)
+	
 
 	r.GET("/orders", orderController.GetAllOrderDetails) // Get all orders
 	r.GET("/orders/:id", orderController.GetOrderByID)   // Get order by ID

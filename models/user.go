@@ -10,4 +10,5 @@ type User struct {
 	IsVerified  bool       `json:"is_verified" gorm:"default:false"`
 	VerifyToken string     `json:"verify_token"`
 	UserDetail  UserDetail `gorm:"foreignKey:UserID"` // Relasi one-to-one
+	Ulasan      []Ulasan   `gorm:"foreignKey:UserID"`
 }

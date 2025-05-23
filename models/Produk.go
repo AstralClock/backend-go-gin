@@ -13,6 +13,7 @@ type Produk struct {
     Image      string    `json:"image" gorm:"not null"`
     Ukurans    []Ukuran  `gorm:"many2many:produk_ukurans;"` // Perubahan utama di sini
     ProdukUkuranStock []ProdukUkuran   `gorm:"foreignKey:ProdukID"`
+    Ulasan []Ulasan `gorm:"foreignKey:ProdukID"`
 }
 
 type Model struct {
