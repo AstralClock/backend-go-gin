@@ -6,13 +6,21 @@ import (
 
 func CORSMiddleware() gin.HandlerFunc {
     return func(c *gin.Context) {
+        origin := c.Request.Header.Get("Origin")
+
         allowedOrigins := []string{
             "https://reva-baju.vercel.app",
-            "https://dashboard-revabajuanak.vercel.app"
+            "https://dashboard-revabajuanak.vercel.app",
+            "http://localhost:3000", // optional, buat dev
         }
 
+        for _, o := range allowedOrigins {
+            if origin == o {
+                c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+                break
+            }
+        }
 
-        c.Writer.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
         c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
         c.Writer.Header().Set("Access-Control-Allow-Headers",
             "Content-Type, Content-Length, Authorization, Accept, X-Requested-With, X-CSRF-Token")
