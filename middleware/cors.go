@@ -11,7 +11,7 @@ func CORSMiddleware() gin.HandlerFunc {
         allowedOrigins := []string{
             "https://reva-baju.vercel.app",
             "https://dashboard-revabajuanak.vercel.app",
-            "http://localhost:3000", // optional, buat dev
+            "http://localhost:3000",
         }
 
         for _, o := range allowedOrigins {
