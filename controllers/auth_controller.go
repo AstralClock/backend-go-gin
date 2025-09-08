@@ -43,10 +43,6 @@ func RegisterUser(input models.User, confirmPassword string) (models.User, strin
 		return models.User{}, "", errors.New("gagal membuat token JWT")
 	}
 
-	if err := utils.SendVerificationEmail(user.Email, verifyToken); err != nil {
-		return models.User{}, "", errors.New("gagal mengirim email verifikasi")
-	}
-
 	return user, jwtToken, nil
 }
 
